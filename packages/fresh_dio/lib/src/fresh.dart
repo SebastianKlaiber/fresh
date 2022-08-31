@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:fresh_dio/fresh_dio.dart';
 
@@ -127,7 +128,17 @@ class Fresh<T> extends QueuedInterceptor with FreshMixin<T> {
   Future<Response<dynamic>> _tryRefresh(Response response) async {
     late final T refreshedToken;
     try {
-      refreshedToken = await _refreshToken(await token, _httpClient);
+      final _token = await token;
+      final _requestHeader = response.requestOptions.headers;
+      final _updatedHeader = Map<String, dynamic>.of(_requestHeader)
+        ..addAll(_token == null ? <String, String>{} : _tokenHeader(_token));
+      final _isEqual = const MapEquality<String, dynamic>()
+          .equals(_updatedHeader, _requestHeader);
+      if (!_isEqual && _token != null) {
+        refreshedToken = _token;
+      } else {
+        refreshedToken = await _refreshToken(_token, _httpClient);
+      }
     } on RevokeTokenException catch (error) {
       await clearToken();
       throw DioError(
